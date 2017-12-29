@@ -45,20 +45,27 @@ import org.apache.james.mime4j.stream.MimeConfig;
 public class MimeMessage extends Message {
     private MimeHeader mHeader = new MimeHeader();
     protected Address[] mFrom;
+    protected Address[] mResentOriginalReturnPath;
+    protected Address[] mResentFrom;
     protected Address[] mSender;
     protected Address[] mTo;
     protected Address[] mCc;
     protected Address[] mBcc;
+    protected Address[] mResentTo;
+    protected Address[] mResentCc;
+    protected Address[] mResentBcc;
     protected Address[] mReplyTo;
     protected Address[] xOriginalTo;
     protected Address[] deliveredTo;
     protected Address[] xEnvelopeTo;
 
     protected String mMessageId;
+    protected String mResentMessageId;
     private String[] mReferences;
     private String[] mInReplyTo;
 
     private Date mSentDate;
+    private Date mResentDate;
     private SimpleDateFormat mDateFormat;
 
     private Body mBody;
@@ -86,19 +93,26 @@ public class MimeMessage extends Message {
     private void parse(InputStream in, boolean recurse) throws IOException, MessagingException {
         mHeader.clear();
         mFrom = null;
+        mResentOriginalReturnPath = null;
+        mResentFrom = null;
         mTo = null;
         mCc = null;
         mBcc = null;
+        mResentTo = null;
+        mResentCc = null;
+        mResentBcc = null;
         mReplyTo = null;
         xOriginalTo = null;
         deliveredTo = null;
         xEnvelopeTo = null;
 
         mMessageId = null;
+        mResentMessageId = null;
         mReferences = null;
         mInReplyTo = null;
 
         mSentDate = null;
+        mResentDate = null;
 
         mBody = null;
 
@@ -169,6 +183,51 @@ public class MimeMessage extends Message {
     }
 
     @Override
+    public Date getResentDate() {
+        if (mResentDate == null) {
+            try {
+                DateTimeField field = (DateTimeField)DefaultFieldParser.parse("Resent-Date: "
+                        + MimeUtility.unfoldAndDecode(getFirstHeader("Resent-Date")));
+                mResentDate = field.getDate();
+            } catch (Exception e) {
+
+            }
+        }
+        return mResentDate;
+    }
+
+    /**
+     * Sets the resent date object member as well as *adds* the 'Resent-Date' header
+     * instead of setting it (for performance reasons).
+     *
+     * @see #mResentDate
+     * @param resentDate
+     * @throws com.fsck.k9.mail.MessagingException
+     */
+    public void addResentDate(Date resentDate, boolean hideTimeZone) {
+        if (mDateFormat == null) {
+            mDateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US);
+        }
+
+        if (hideTimeZone) {
+            mDateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        }
+
+        addHeader("Resent-Date", mDateFormat.format(resentDate));
+        setInternalResentDate(resentDate);
+    }
+
+    @Override
+    public void setResentDate(Date resentDate, boolean hideTimeZone) {
+        removeHeader("Resent-Date");
+        addResentDate(resentDate, hideTimeZone);
+    }
+
+    public void setInternalResentDate(Date resentDate) {
+        this.mResentDate = resentDate;
+    }
+
+    @Override
     public String getContentType() {
         String contentType = getFirstHeader(MimeHeader.HEADER_CONTENT_TYPE);
         return (contentType == null) ? "text/plain" : MimeUtility.unfoldAndDecode(contentType);
@@ -224,6 +283,24 @@ public class MimeMessage extends Message {
                 }
                 return mBcc;
             }
+            case RESENT_TO: {
+                if (mResentTo == null) {
+                    mResentTo = Address.parse(MimeUtility.unfold(getFirstHeader("Resent-To")));
+                }
+                return mResentTo;
+            }
+            case RESENT_CC: {
+                if (mResentCc == null) {
+                    mResentCc = Address.parse(MimeUtility.unfold(getFirstHeader("Resent-CC")));
+                }
+                return mResentCc;
+            }
+            case RESENT_BCC: {
+                if (mResentBcc == null) {
+                    mResentBcc = Address.parse(MimeUtility.unfold(getFirstHeader("Resent-BCC")));
+                }
+                return mResentBcc;
+            }
             case X_ORIGINAL_TO: {
                 if (xOriginalTo == null) {
                     xOriginalTo = Address.parse(MimeUtility.unfold(getFirstHeader("X-Original-To")));
@@ -249,52 +326,80 @@ public class MimeMessage extends Message {
 
     @Override
     public void setRecipients(RecipientType type, Address[] addresses) {
+        setRecipients(type, addresses, true);
+    }
+
+    public void setRecipients(RecipientType type, Address[] addresses, boolean setHeader) {
         if (type == RecipientType.TO) {
             if (addresses == null || addresses.length == 0) {
-                removeHeader("To");
+                if (setHeader) removeHeader("To");
                 this.mTo = null;
             } else {
-                setHeader("To", Address.toEncodedString(addresses));
+                if (setHeader) setHeader("To", Address.toEncodedString(addresses));
                 this.mTo = addresses;
             }
         } else if (type == RecipientType.CC) {
             if (addresses == null || addresses.length == 0) {
-                removeHeader("CC");
+                if (setHeader) removeHeader("CC");
                 this.mCc = null;
             } else {
-                setHeader("CC", Address.toEncodedString(addresses));
+                if (setHeader) setHeader("CC", Address.toEncodedString(addresses));
                 this.mCc = addresses;
             }
         } else if (type == RecipientType.BCC) {
             if (addresses == null || addresses.length == 0) {
-                removeHeader("BCC");
+                if (setHeader) removeHeader("BCC");
                 this.mBcc = null;
             } else {
-                setHeader("BCC", Address.toEncodedString(addresses));
+                if (setHeader) setHeader("BCC", Address.toEncodedString(addresses));
                 this.mBcc = addresses;
+            }
+        } else if (type == RecipientType.RESENT_TO) {
+            if (addresses == null || addresses.length == 0) {
+                if (setHeader) removeHeader("Resent-To");
+                this.mResentTo = null;
+            } else {
+                if (setHeader) setHeader("Resent-To", Address.toEncodedString(addresses));
+                this.mResentTo = addresses;
+            }
+        } else if (type == RecipientType.RESENT_CC) {
+            if (addresses == null || addresses.length == 0) {
+                if (setHeader) removeHeader("Resent-CC");
+                this.mResentCc = null;
+            } else {
+                if (setHeader) setHeader("Resent-CC", Address.toEncodedString(addresses));
+                this.mResentCc = addresses;
+            }
+        } else if (type == RecipientType.RESENT_BCC) {
+            if (addresses == null || addresses.length == 0) {
+                if (setHeader) removeHeader("Resent-BCC");
+                this.mResentBcc = null;
+            } else {
+                if (setHeader) setHeader("Resent-BCC", Address.toEncodedString(addresses));
+                this.mResentBcc = addresses;
             }
         } else if (type == RecipientType.X_ORIGINAL_TO) {
             if (addresses == null || addresses.length == 0) {
-                removeHeader("X-Original-To");
+                if (setHeader) removeHeader("X-Original-To");
                 this.xOriginalTo = null;
             } else {
-                setHeader("X-Original-To", Address.toEncodedString(addresses));
+                if (setHeader) setHeader("X-Original-To", Address.toEncodedString(addresses));
                 this.xOriginalTo = addresses;
             }
         } else if (type == RecipientType.DELIVERED_TO) {
             if (addresses == null || addresses.length == 0) {
-                removeHeader("Delivered-To");
+                if (setHeader) removeHeader("Delivered-To");
                 this.deliveredTo = null;
             } else {
-                setHeader("Delivered-To", Address.toEncodedString(addresses));
+                if (setHeader) setHeader("Delivered-To", Address.toEncodedString(addresses));
                 this.deliveredTo = addresses;
             }
         } else if (type == RecipientType.X_ENVELOPE_TO) {
             if (addresses == null || addresses.length == 0) {
-                removeHeader("X-Envelope-To");
+                if (setHeader) removeHeader("X-Envelope-To");
                 this.xEnvelopeTo = null;
             } else {
-                setHeader("X-Envelope-To", Address.toEncodedString(addresses));
+                if (setHeader) setHeader("X-Envelope-To", Address.toEncodedString(addresses));
                 this.xEnvelopeTo = addresses;
             }
         } else {
@@ -336,6 +441,48 @@ public class MimeMessage extends Message {
             };
         } else {
             this.mFrom = null;
+        }
+    }
+
+    @Override
+    public Address[] getResentOriginalReturnPath() {
+        if (mResentOriginalReturnPath == null) {
+            String list = MimeUtility.unfold(getFirstHeader("Return-Path"));
+            mResentOriginalReturnPath = Address.parse(list);
+        }
+        return mResentOriginalReturnPath;
+    }
+
+    @Override
+    public void setResentOriginalReturnPath(Address resentOriginalReturnPath) {
+        if (resentOriginalReturnPath != null) {
+            setHeader("Return-Path", resentOriginalReturnPath.toEncodedString());
+            this.mResentOriginalReturnPath = new Address[] {
+                    resentOriginalReturnPath
+            };
+        } else {
+            this.mResentOriginalReturnPath = null;
+        }
+    }
+
+    @Override
+    public Address[] getResentFrom() {
+        if (mResentFrom == null) {
+            String list = MimeUtility.unfold(getFirstHeader("Resent-From"));
+            mResentFrom = Address.parse(list);
+        }
+        return mResentFrom;
+    }
+
+    @Override
+    public void setResentFrom(Address resentFrom) {
+        if (resentFrom != null) {
+            setHeader("Resent-From", resentFrom.toEncodedString());
+            this.mResentFrom = new Address[] {
+                    resentFrom
+            };
+        } else {
+            this.mResentFrom = null;
         }
     }
 
@@ -386,6 +533,19 @@ public class MimeMessage extends Message {
     public void setMessageId(String messageId) {
         setHeader("Message-ID", messageId);
         mMessageId = messageId;
+    }
+
+    @Override
+    public String getResentMessageId() {
+        if (mResentMessageId == null) {
+            mResentMessageId = getFirstHeader("Resent-Message-ID");
+        }
+        return mResentMessageId;
+    }
+
+    public void setResentMessageId(String resentMessageId) {
+        setHeader("Resent-Message-ID", resentMessageId);
+        mResentMessageId = resentMessageId;
     }
 
     @Override
@@ -668,15 +828,21 @@ public class MimeMessage extends Message {
 
         destination.mBody = mBody;
         destination.mMessageId = mMessageId;
+        destination.mResentMessageId = mResentMessageId;
         destination.mSentDate = mSentDate;
+        destination.mResentDate = mResentDate;
         destination.mDateFormat = mDateFormat;
         destination.mSize = mSize;
 
         // These arrays are not supposed to be modified, so it's okay to reuse the references
         destination.mFrom = mFrom;
+        destination.mResentFrom = mResentFrom;
         destination.mTo = mTo;
         destination.mCc = mCc;
         destination.mBcc = mBcc;
+        destination.mResentTo = mResentTo;
+        destination.mResentCc = mResentCc;
+        destination.mResentBcc = mResentBcc;
         destination.mReplyTo = mReplyTo;
         destination.mReferences = mReferences;
         destination.mInReplyTo = mInReplyTo;
@@ -690,6 +856,11 @@ public class MimeMessage extends Message {
         MimeMessage message = new MimeMessage();
         copy(message);
         return message;
+    }
+
+    @Override
+    public long getId() {
+        return Long.parseLong(mUid); //or maybe .mMessageId?
     }
 
     @Override

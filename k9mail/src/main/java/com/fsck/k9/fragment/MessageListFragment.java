@@ -788,8 +788,24 @@ public class MessageListFragment extends Fragment implements OnItemClickListener
         fragmentListener.onForward(messageReference);
     }
 
+    public void onForwardAsAttachment(MessageReference messageReference) {
+        fragmentListener.onForwardAsAttachment(messageReference);
+    }
+
+    public void onReportSpam(MessageReference messageReference) {
+        fragmentListener.onReportSpam(messageReference);
+    }
+
+    public void onReportHam(MessageReference messageReference) {
+        fragmentListener.onReportHam(messageReference);
+    }
+
     private void onResendMessage(MessageReference messageReference) {
         fragmentListener.onResendMessage(messageReference);
+    }
+
+    public void onRedirect(MessageReference messageReference) {
+        fragmentListener.onRedirect(messageReference);
     }
 
     public void changeSort(SortType sortType) {
@@ -1112,8 +1128,24 @@ public class MessageListFragment extends Fragment implements OnItemClickListener
                 onReplyAll(getMessageAtPosition(adapterPosition));
                 break;
             }
+            case R.id.redirect: {
+                onRedirect(getMessageAtPosition(adapterPosition));
+                break;
+            }
             case R.id.forward: {
                 onForward(getMessageAtPosition(adapterPosition));
+                break;
+            }
+            case R.id.forward_as_attachment: {
+                onForwardAsAttachment(getMessageAtPosition(adapterPosition));
+                break;
+            }
+            case R.id.reportspam: {
+                onReportSpam(getMessageAtPosition(adapterPosition));
+                break;
+            }
+            case R.id.reportham: {
+                onReportHam(getMessageAtPosition(adapterPosition));
                 break;
             }
             case R.id.send_again: {
@@ -1239,6 +1271,13 @@ public class MessageListFragment extends Fragment implements OnItemClickListener
             menu.findItem(R.id.spam).setVisible(false);
         }
 
+        if (TextUtils.isEmpty(account.getReportSpamRecipient())) {
+            menu.findItem(R.id.reportspam).setVisible(false);
+        }
+
+        if (TextUtils.isEmpty(account.getReportHamRecipient())) {
+            menu.findItem(R.id.reportham).setVisible(false);
+        }
     }
 
     public void onSwipeRightToLeft(final MotionEvent e1, final MotionEvent e2) {
@@ -2375,8 +2414,12 @@ public class MessageListFragment extends Fragment implements OnItemClickListener
         void showMoreFromSameSender(String senderAddress);
         void onResendMessage(MessageReference message);
         void onForward(MessageReference message);
+        void onForwardAsAttachment(MessageReference message);
+        void onReportSpam(MessageReference message);
+        void onReportHam(MessageReference message);
         void onReply(MessageReference message);
         void onReplyAll(MessageReference message);
+        void onRedirect(MessageReference message);
         void openMessage(MessageReference messageReference);
         void setMessageListTitle(String title);
         void setMessageListSubTitle(String subTitle);

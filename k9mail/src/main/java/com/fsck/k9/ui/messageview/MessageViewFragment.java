@@ -280,6 +280,14 @@ public class MessageViewFragment extends Fragment implements ConfirmationDialogF
         return mMessageView.getMessageHeaderView().additionalHeadersVisible();
     }
 
+    public boolean isAccountReportSpamEnabled() {
+        return (mAccount != null && !TextUtils.isEmpty(mAccount.getReportSpamRecipient()));
+    }
+
+    public boolean isAccountReportHamEnabled() {
+        return (mAccount != null && !TextUtils.isEmpty(mAccount.getReportHamRecipient()));
+    }
+
     private void delete() {
         if (mMessage != null) {
             // Disable the delete button after it's tapped (to try to prevent
@@ -332,9 +340,35 @@ public class MessageViewFragment extends Fragment implements ConfirmationDialogF
         }
     }
 
+    public void onRedirect() {
+        if (mMessage != null) {
+            mFragmentListener.onRedirect(mMessage.makeMessageReference(), messageCryptoPresenter.getDecryptionResultForReply());
+        }
+    }
+
     public void onForward() {
         if (mMessage != null) {
             mFragmentListener.onForward(mMessage.makeMessageReference(), messageCryptoPresenter.getDecryptionResultForReply());
+        }
+    }
+
+    public void onForwardAsAttachment() {
+        if (mMessage != null) {
+            mFragmentListener.onForwardAsAttachment(mMessage.makeMessageReference(), messageCryptoPresenter.getDecryptionResultForReply());
+        }
+    }
+
+    public void onReportSpam() {
+        if (mMessage != null) {
+            mFragmentListener.onReportSpam(mMessage.makeMessageReference(), messageCryptoPresenter.getDecryptionResultForReply());
+            mFragmentListener.showNextMessageOrReturn();
+        }
+    }
+
+    public void onReportHam() {
+        if (mMessage != null) {
+            mFragmentListener.onReportHam(mMessage.makeMessageReference(), messageCryptoPresenter.getDecryptionResultForReply());
+            mFragmentListener.showNextMessageOrReturn();
         }
     }
 
@@ -723,7 +757,11 @@ public class MessageViewFragment extends Fragment implements ConfirmationDialogF
 
     public interface MessageViewFragmentListener {
         void onForward(MessageReference messageReference, Parcelable decryptionResultForReply);
+        void onForwardAsAttachment(MessageReference messageReference, Parcelable decryptionResultForReply);
+        void onReportSpam(MessageReference messageReference, Parcelable decryptionResultForReply);
+        void onReportHam(MessageReference messageReference, Parcelable decryptionResultForReply);
         void disableDeleteAction();
+        void onRedirect(MessageReference messageReference, Parcelable decryptionResultForReply);
         void onReplyAll(MessageReference messageReference, Parcelable decryptionResultForReply);
         void onReply(MessageReference messageReference, Parcelable decryptionResultForReply);
         void displayMessageSubject(String title);

@@ -225,6 +225,12 @@ public class Account implements BaseAccount, StoreConfig {
     private boolean allowRemoteSearch;
     private boolean remoteSearchFullText;
     private int remoteSearchNumResults;
+    private String reportSpamRecipient;
+    private String reportSpamSubject;
+    private boolean reportSpamDelete;
+    private String reportHamRecipient;
+    private String reportHamSubject;
+    private boolean reportHamDelete;
 
     private ColorChip unreadColorChip;
     private ColorChip readColorChip;
@@ -321,6 +327,12 @@ public class Account implements BaseAccount, StoreConfig {
         isEnabled = true;
         markMessageAsReadOnView = true;
         alwaysShowCcBcc = false;
+        reportSpamRecipient = "";
+        reportSpamSubject = "";
+        reportSpamDelete = false;
+        reportHamRecipient = "";
+        reportHamSubject = "";
+        reportHamDelete = false;
 
         searchableFolders = Searchable.ALL;
 
@@ -472,6 +484,13 @@ public class Account implements BaseAccount, StoreConfig {
         markMessageAsReadOnView = storage.getBoolean(accountUuid + ".markMessageAsReadOnView", true);
         alwaysShowCcBcc = storage.getBoolean(accountUuid + ".alwaysShowCcBcc", false);
 
+        reportSpamRecipient = storage.getString(accountUuid + ".reportSpamRecipient", "");
+        reportSpamSubject = storage.getString(accountUuid + ".reportSpamSubject", "");
+        reportSpamDelete = storage.getBoolean(accountUuid  + ".reportSpamDelete", true);
+        reportHamRecipient = storage.getString(accountUuid + ".reportHamRecipient", "");
+        reportHamSubject = storage.getString(accountUuid + ".reportHamSubject", "");
+        reportHamDelete = storage.getBoolean(accountUuid  + ".reportHamDelete", true);
+
         cacheChips();
 
         // Use email address as account description if necessary
@@ -571,6 +590,12 @@ public class Account implements BaseAccount, StoreConfig {
         editor.remove(accountUuid + ".messageFormat");
         editor.remove(accountUuid + ".messageReadReceipt");
         editor.remove(accountUuid + ".notifyMailCheck");
+        editor.remove(accountUuid + ".reportSpamRecipient");
+        editor.remove(accountUuid + ".reportSpamSubject");
+        editor.remove(accountUuid + ".reportSpamDelete");
+        editor.remove(accountUuid + ".reportHamRecipient");
+        editor.remove(accountUuid + ".reportHamSubject");
+        editor.remove(accountUuid + ".reportHamDelete");
         for (NetworkType type : NetworkType.values()) {
             editor.remove(accountUuid + ".useCompression." + type.name());
         }
@@ -736,6 +761,12 @@ public class Account implements BaseAccount, StoreConfig {
         editor.putBoolean(accountUuid + ".enabled", isEnabled);
         editor.putBoolean(accountUuid + ".markMessageAsReadOnView", markMessageAsReadOnView);
         editor.putBoolean(accountUuid + ".alwaysShowCcBcc", alwaysShowCcBcc);
+        editor.putString(accountUuid + ".reportSpamRecipient", reportSpamRecipient);
+        editor.putString(accountUuid + ".reportSpamSubject", reportSpamSubject);
+        editor.putBoolean(accountUuid + ".reportSpamDelete", reportSpamDelete);
+        editor.putString(accountUuid + ".reportHamRecipient", reportHamRecipient);
+        editor.putString(accountUuid + ".reportHamSubject", reportHamSubject);
+        editor.putBoolean(accountUuid + ".reportHamDelete", reportHamDelete);
 
         editor.putBoolean(accountUuid + ".vibrate", notificationSetting.isVibrateEnabled());
         editor.putInt(accountUuid + ".vibratePattern", notificationSetting.getVibratePattern());
@@ -1716,6 +1747,55 @@ public class Account implements BaseAccount, StoreConfig {
     public synchronized void setAlwaysShowCcBcc(boolean show) {
         alwaysShowCcBcc = show;
     }
+
+    public String getReportSpamRecipient() {
+        return reportSpamRecipient;
+    }
+
+    public void setReportSpamRecipient(String recipient) {
+        this.reportSpamRecipient = recipient;
+    }
+
+    public String getReportSpamSubject() {
+        return reportSpamSubject;
+    }
+
+    public void setReportSpamSubject(String subject) {
+        this.reportSpamSubject = subject;
+    }
+
+    public synchronized boolean isReportSpamDelete() {
+        return reportSpamDelete;
+    }
+
+    public synchronized void setReportSpamDelete(boolean delete) {
+        reportSpamDelete = delete;
+    }
+
+    public String getReportHamRecipient() {
+        return reportHamRecipient;
+    }
+
+    public void setReportHamRecipient(String recipient) {
+        this.reportHamRecipient = recipient;
+    }
+
+    public String getReportHamSubject() {
+        return reportHamSubject;
+    }
+
+    public void setReportHamSubject(String subject) {
+        this.reportHamSubject = subject;
+    }
+
+    public synchronized boolean isReportHamDelete() {
+        return reportHamDelete;
+    }
+
+    public synchronized void setReportHamDelete(boolean delete) {
+        reportHamDelete = delete;
+    }
+
     public boolean isRemoteSearchFullText() {
         return false;   // Temporarily disabled
         //return remoteSearchFullText;

@@ -61,6 +61,17 @@ public class MessageActions {
     }
 
     /**
+     * Redirect the given message as defined by rfc5322.
+     */
+    public static void actionRedirect(Context context, MessageReference messageReference, Parcelable decryptionResult) {
+        Intent i = new Intent(context, MessageCompose.class);
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_REFERENCE, messageReference.toIdentityString());
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_DECRYPTION_RESULT, decryptionResult);
+        i.setAction(MessageCompose.ACTION_REDIRECT);
+        context.startActivity(i);
+    }
+
+    /**
      * Compose a new message as a forward of the given message.
      */
     public static void actionForward(Context context, MessageReference messageReference, Parcelable decryptionResult) {
@@ -68,6 +79,39 @@ public class MessageActions {
         i.putExtra(MessageCompose.EXTRA_MESSAGE_REFERENCE, messageReference.toIdentityString());
         i.putExtra(MessageCompose.EXTRA_MESSAGE_DECRYPTION_RESULT, decryptionResult);
         i.setAction(MessageCompose.ACTION_FORWARD);
+        context.startActivity(i);
+    }
+
+    /**
+     * Compose a new message with the given message attached.
+     */
+    public static void actionForwardAsAttachment(Context context, MessageReference messageReference, Parcelable decryptionResult) {
+        Intent i = new Intent(context, MessageCompose.class);
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_REFERENCE, messageReference.toIdentityString());
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_DECRYPTION_RESULT, decryptionResult);
+        i.setAction(MessageCompose.ACTION_FORWARD_AS_ATTACHMENT);
+        context.startActivity(i);
+    }
+
+    /**
+     * Send a message with the given message attached to the predefined recipient address.
+     */
+    public static void actionReportSpam(Context context, MessageReference messageReference, Parcelable decryptionResult) {
+        Intent i = new Intent(context, MessageCompose.class);
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_REFERENCE, messageReference.toIdentityString());
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_DECRYPTION_RESULT, decryptionResult);
+        i.setAction(MessageCompose.ACTION_REPORT_SPAM);
+        context.startActivity(i);
+    }
+
+    /**
+     * Send a message with the given message attached to the predefined recipient address.
+     */
+    public static void actionReportHam(Context context, MessageReference messageReference, Parcelable decryptionResult) {
+        Intent i = new Intent(context, MessageCompose.class);
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_REFERENCE, messageReference.toIdentityString());
+        i.putExtra(MessageCompose.EXTRA_MESSAGE_DECRYPTION_RESULT, decryptionResult);
+        i.setAction(MessageCompose.ACTION_REPORT_HAM);
         context.startActivity(i);
     }
 

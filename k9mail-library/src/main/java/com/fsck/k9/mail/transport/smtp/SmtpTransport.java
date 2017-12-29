@@ -434,7 +434,7 @@ public class SmtpTransport extends Transport {
         boolean entireMessageSent = false;
 
         try {
-            String mailFrom = constructSmtpMailFromCommand(message.getFrom(), is8bitEncodingAllowed);
+            String mailFrom = constructSmtpMailFromCommand(message.getResentOriginalReturnPath() != null && message.getResentOriginalReturnPath().length > 0 ? message.getResentOriginalReturnPath() : message.getFrom(), is8bitEncodingAllowed);
 
             if (isPipeliningSupported) {
                 Queue<String> pipelinedCommands = new LinkedList<>();

@@ -17,7 +17,7 @@ import timber.log.Timber;
 public abstract class Message implements Part, Body {
 
     public enum RecipientType {
-        TO, CC, BCC, X_ORIGINAL_TO, DELIVERED_TO, X_ENVELOPE_TO
+        TO, CC, BCC, X_ORIGINAL_TO, DELIVERED_TO, X_ENVELOPE_TO, RESENT_TO, RESENT_CC, RESENT_BCC
     }
 
     protected String mUid;
@@ -90,6 +90,10 @@ public abstract class Message implements Part, Body {
 
     public abstract void setSentDate(Date sentDate, boolean hideTimeZone);
 
+    public abstract Date getResentDate();
+
+    public abstract void setResentDate(Date sentDate, boolean hideTimeZone);
+
     public abstract Address[] getRecipients(RecipientType type);
 
     public abstract void setRecipients(RecipientType type, Address[] addresses);
@@ -104,6 +108,14 @@ public abstract class Message implements Part, Body {
 
     public abstract void setFrom(Address from);
 
+    public abstract Address[] getResentOriginalReturnPath();
+
+    public abstract void setResentOriginalReturnPath(Address from);
+
+    public abstract Address[] getResentFrom();
+
+    public abstract void setResentFrom(Address from);
+
     public abstract Address[] getSender();
 
     public abstract void setSender(Address sender);
@@ -113,6 +125,8 @@ public abstract class Message implements Part, Body {
     public abstract void setReplyTo(Address[] from);
 
     public abstract String getMessageId();
+
+    public abstract String getResentMessageId();
 
     public abstract void setInReplyTo(String inReplyTo);
 
@@ -143,6 +157,8 @@ public abstract class Message implements Part, Body {
 
     @Override
     public abstract void setBody(Body body);
+
+    public abstract long getId();
 
     public abstract boolean hasAttachments();
 

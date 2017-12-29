@@ -78,6 +78,7 @@ import com.fsck.k9.helper.ReplyToParser;
 import com.fsck.k9.helper.SimpleTextWatcher;
 import com.fsck.k9.helper.Utility;
 import com.fsck.k9.mail.Address;
+import com.fsck.k9.mail.Body;
 import com.fsck.k9.mail.Flag;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mail.Message.RecipientType;
@@ -93,6 +94,7 @@ import com.fsck.k9.message.IdentityHeaderParser;
 import com.fsck.k9.message.MessageBuilder;
 import com.fsck.k9.message.PgpMessageBuilder;
 import com.fsck.k9.message.QuotedTextMode;
+import com.fsck.k9.message.ResentMessageBuilder;
 import com.fsck.k9.message.SimpleMessageBuilder;
 import com.fsck.k9.message.SimpleMessageFormat;
 import com.fsck.k9.search.LocalSearch;
@@ -121,7 +123,11 @@ public class MessageCompose extends K9Activity implements OnClickListener,
     public static final String ACTION_REPLY = "com.fsck.k9.intent.action.REPLY";
     public static final String ACTION_REPLY_ALL = "com.fsck.k9.intent.action.REPLY_ALL";
     public static final String ACTION_FORWARD = "com.fsck.k9.intent.action.FORWARD";
+    public static final String ACTION_FORWARD_AS_ATTACHMENT = "com.fsck.k9.intent.action.FORWARD_AS_ATTACHMENT";
+    public static final String ACTION_REPORT_SPAM = "com.fsck.k9.intent.action.REPORT_SPAM";
+    public static final String ACTION_REPORT_HAM = "com.fsck.k9.intent.action.REPORT_HAM";
     public static final String ACTION_EDIT_DRAFT = "com.fsck.k9.intent.action.EDIT_DRAFT";
+    public static final String ACTION_REDIRECT = "com.fsck.k9.intent.action.REDIRECT";
     private static final String ACTION_AUTOCRYPT_PEER = "org.autocrypt.PEER_ACTION";
 
     public static final String EXTRA_ACCOUNT = "account";
@@ -171,6 +177,9 @@ public class MessageCompose extends K9Activity implements OnClickListener,
      * The account used for message composition.
      */
     private Account account;
+
+    private String redirectOriginalReturnPath = null;
+    private Body redirectBody = null;
     private Identity identity;
     private boolean identityChanged = false;
     private boolean signatureChanged = false;
@@ -355,8 +364,16 @@ public class MessageCompose extends K9Activity implements OnClickListener,
                 this.action = Action.REPLY_ALL;
             } else if (ACTION_FORWARD.equals(action)) {
                 this.action = Action.FORWARD;
+            } else if (ACTION_FORWARD_AS_ATTACHMENT.equals(action)) {
+                this.action = Action.FORWARD_AS_ATTACHMENT;
+            } else if (ACTION_REPORT_SPAM.equals(action)) {
+                this.action = Action.REPORT_SPAM;
+            } else if (ACTION_REPORT_HAM.equals(action)) {
+                this.action = Action.REPORT_HAM;
             } else if (ACTION_EDIT_DRAFT.equals(action)) {
                 this.action = Action.EDIT_DRAFT;
+            } else if (ACTION_REDIRECT.equals(action)) {
+                this.action = Action.REDIRECT;
             } else {
                 // This shouldn't happen
                 Timber.w("MessageCompose was started with an unsupported action");
@@ -388,7 +405,9 @@ public class MessageCompose extends K9Activity implements OnClickListener,
 
         if (!relatedMessageProcessed) {
             if (action == Action.REPLY || action == Action.REPLY_ALL ||
-                    action == Action.FORWARD || action == Action.EDIT_DRAFT) {
+                    action == Action.FORWARD || action == Action.FORWARD_AS_ATTACHMENT ||
+                    action == Action.REDIRECT || action == Action.REPORT_SPAM ||
+                    action == Action.REPORT_HAM || action == Action.EDIT_DRAFT) {
                 messageLoaderHelper = new MessageLoaderHelper(this, getLoaderManager(), getFragmentManager(),
                         messageLoaderCallbacks);
                 internalMessageHandler.sendEmptyMessage(MSG_PROGRESS_ON);
@@ -397,8 +416,21 @@ public class MessageCompose extends K9Activity implements OnClickListener,
                 messageLoaderHelper.asyncStartOrResumeLoadingMessage(relatedMessageReference, cachedDecryptionResult);
             }
 
-            if (action != Action.EDIT_DRAFT) {
+
+            if (action == Action.REPORT_SPAM) {
+                recipientPresenter.addToAddresses(Address.parse(account.getReportSpamRecipient()));
+            } else if (action == Action.REPORT_HAM) {
+                    recipientPresenter.addToAddresses(Address.parse(account.getReportHamRecipient()));
+            } else if (action != Action.EDIT_DRAFT) {
                 String alwaysBccString = account.getAlwaysBcc();
+                if (action == Action.EDIT_DRAFT) {
+                    Preferences prefs = Preferences.getPreferences(getApplicationContext());
+                    Account account = prefs.getAccount(relatedMessageReference.getAccountUuid());
+                    String folderName = relatedMessageReference.getFolderName();
+                    if (folderName.equals(account.getDraftsFolderName())) {
+                        alwaysBccString = null;
+                    }
+                }
                 if (!TextUtils.isEmpty(alwaysBccString)) {
                     recipientPresenter.addBccAddresses(Address.parse(alwaysBccString));
                 }
@@ -418,7 +450,9 @@ public class MessageCompose extends K9Activity implements OnClickListener,
             recipientMvpView.requestFocusOnToField();
         }
 
-        if (action == Action.FORWARD) {
+        if (action == Action.FORWARD || action == Action.FORWARD_AS_ATTACHMENT
+                 || action == Action.REDIRECT || action == Action.REPORT_SPAM
+                 || action == Action.REPORT_HAM) {
             relatedMessageReference = relatedMessageReference.withModifiedFlag(Flag.FORWARDED);
         }
 
@@ -642,6 +676,21 @@ public class MessageCompose extends K9Activity implements OnClickListener,
     private MessageBuilder createMessageBuilder(boolean isDraft) {
         MessageBuilder builder;
 
+        if (action == Action.REDIRECT) {
+            ResentMessageBuilder resentBuilder = ResentMessageBuilder.newInstance();
+            resentBuilder.setResentMessageReference(relatedMessageReference)
+                    .setResentTo(recipientPresenter.getToAddresses())
+                    .setResentCc(recipientPresenter.getCcAddresses())
+                    .setResentBcc(recipientPresenter.getBccAddresses())
+                    .setResentDate(new Date())
+                    .setResentHideTimeZone(K9.hideTimeZone())
+                    .setResentIdentity(identity)
+                    .setResentBody(redirectBody)
+                    .setResentOriginalReturnPath(redirectOriginalReturnPath);
+            builder = resentBuilder;
+        }
+        else {
+	
         ComposeCryptoStatus cryptoStatus = recipientPresenter.getCurrentCachedCryptoStatus();
         if (cryptoStatus == null) {
             return null;
@@ -666,6 +715,11 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         builder.setSubject(Utility.stripNewLines(subjectView.getText().toString()))
                 .setSentDate(new Date())
                 .setHideTimeZone(K9.hideTimeZone())
+		//THOR needs check
+                    .setTo(recipientPresenter.getToAddresses())
+                    .setCc(recipientPresenter.getCcAddresses())
+                    .setBcc(recipientPresenter.getBccAddresses())
+		//THOR needs check
                 .setInReplyTo(repliedToMessageId)
                 .setReferences(referencedMessageIds)
                 .setRequestReadReceipt(requestReadReceipt)
@@ -683,7 +737,8 @@ public class MessageCompose extends K9Activity implements OnClickListener,
                 .setIsPgpInlineEnabled(cryptoStatus.isPgpInlineModeEnabled());
 
         quotedMessagePresenter.builderSetProperties(builder);
-
+	
+        }
         return builder;
     }
 
@@ -1011,6 +1066,12 @@ public class MessageCompose extends K9Activity implements OnClickListener,
             menu.findItem(R.id.save).setEnabled(false);
         }
 
+        if (action == Action.REDIRECT) {
+            menu.findItem(R.id.add_attachment).setEnabled(false);
+            menu.findItem(R.id.save).setEnabled(false);
+            menu.findItem(R.id.read_receipt).setEnabled(false);
+        }
+
         return true;
     }
 
@@ -1196,11 +1257,59 @@ public class MessageCompose extends K9Activity implements OnClickListener,
                     break;
                 }
                 case FORWARD: {
-                    processMessageToForward(messageViewInfo);
+                    try {
+                        processMessageToForward(messageViewInfo, false);
+                    } catch (java.io.IOException ioe) {
+                        /**
+                         * Let the user continue composing their message even if we have a problem processing
+                         * the source message. Log it as an error, though.
+                         */
+                        Timber.e(ioe, "Error while processing source message: ");
+                    }
+                    break;
+                }
+                case FORWARD_AS_ATTACHMENT: {
+                    try {
+                        processMessageToForward(messageViewInfo, true);
+                    } catch (java.io.IOException ioe) {
+                        /**
+                         * Let the user continue composing their message even if we have a problem processing
+                         * the source message. Log it as an error, though.
+                         */
+                        Timber.e(ioe, "Error while processing source message: ");
+                    }
+                    break;
+                }
+                case REPORT_SPAM: {
+                    try {
+                        processMessageToReportSpam(messageViewInfo);
+                    } catch (java.io.IOException ioe) {
+                        /**
+                         * Let the user continue composing their message even if we have a problem processing
+                         * the source message. Log it as an error, though.
+                         */
+                        Timber.e(ioe, "Error while processing source message: ");
+                    }
+                    break;
+                }
+                case REPORT_HAM: {
+                    try {
+                        processMessageToReportHam(messageViewInfo);
+                    } catch (java.io.IOException ioe) {
+                        /**
+                         * Let the user continue composing their message even if we have a problem processing
+                         * the source message. Log it as an error, though.
+                         */
+                        Timber.e(ioe, "Error while processing source message: ");
+                    }
                     break;
                 }
                 case EDIT_DRAFT: {
                     processDraftMessage(messageViewInfo);
+                    break;
+                }
+                case REDIRECT: {
+                    processMessageToRedirect(messageViewInfo);
                     break;
                 }
                 default: {
@@ -1271,7 +1380,7 @@ public class MessageCompose extends K9Activity implements OnClickListener,
 
     }
 
-    private void processMessageToForward(MessageViewInfo messageViewInfo) throws MessagingException {
+    private void processMessageToForward(MessageViewInfo messageViewInfo, boolean asAttachment) throws java.io.IOException, MessagingException {
         Message message = messageViewInfo.message;
 
         String subject = message.getSubject();
@@ -1293,8 +1402,68 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         }
 
         // Quote the message and setup the UI.
-        quotedMessagePresenter.processMessageToForward(messageViewInfo);
-        attachmentPresenter.processMessageToForward(messageViewInfo);
+        if (asAttachment) {
+            attachmentPresenter.processMessageToForwardAsAttachment(messageViewInfo);
+        } else {
+            quotedMessagePresenter.processMessageToForward(messageViewInfo);
+            attachmentPresenter.processMessageToForward(messageViewInfo);
+        }
+    }
+
+    private void processMessageToReportSpam(MessageViewInfo messageViewInfo) throws java.io.IOException, MessagingException {
+        Message message = messageViewInfo.message;
+
+        if (TextUtils.isEmpty(account.getReportSpamSubject())) {
+            String subject = message.getSubject();
+            if (subject != null && !subject.toLowerCase(Locale.US).startsWith("fwd:")) {
+                subjectView.setText("Fwd: " + subject);
+            } else {
+                subjectView.setText(subject);
+            }
+        } else {
+            subjectView.setText(account.getReportSpamSubject());
+        }
+
+        // "Be Like Thunderbird" - on forwarded messages, set the message ID
+        // of the forwarded message in the references and the reply to.  TB
+        // only includes ID of the message being forwarded in the reference,
+        // even if there are multiple references.
+        if (!TextUtils.isEmpty(message.getMessageId())) {
+            repliedToMessageId = message.getMessageId();
+            referencedMessageIds = repliedToMessageId;
+        } else {
+            Timber.d("could not get Message-ID.");
+        }
+
+        attachmentPresenter.processMessageToForwardAsAttachment(messageViewInfo);
+    }
+
+    private void processMessageToReportHam(MessageViewInfo messageViewInfo) throws java.io.IOException, MessagingException {
+        Message message = messageViewInfo.message;
+
+        if (TextUtils.isEmpty(account.getReportHamSubject())) {
+            String subject = message.getSubject();
+            if (subject != null && !subject.toLowerCase(Locale.US).startsWith("fwd:")) {
+                subjectView.setText("Fwd: " + subject);
+            } else {
+                subjectView.setText(subject);
+            }
+        } else {
+            subjectView.setText(account.getReportHamSubject());
+        }
+
+        // "Be Like Thunderbird" - on forwarded messages, set the message ID
+        // of the forwarded message in the references and the reply to.  TB
+        // only includes ID of the message being forwarded in the reference,
+        // even if there are multiple references.
+        if (!TextUtils.isEmpty(message.getMessageId())) {
+            repliedToMessageId = message.getMessageId();
+            referencedMessageIds = repliedToMessageId;
+        } else {
+            Timber.d("could not get Message-ID.");
+        }
+
+        attachmentPresenter.processMessageToForwardAsAttachment(messageViewInfo);
     }
 
     private void processDraftMessage(MessageViewInfo messageViewInfo) {
@@ -1376,6 +1545,36 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         updateFrom();
 
         quotedMessagePresenter.processDraftMessage(messageViewInfo, k9identity);
+    }
+
+    private void processMessageToRedirect(MessageViewInfo messageViewInfo) throws MessagingException {
+        Message message = messageViewInfo.message;
+
+        redirectBody = messageViewInfo.rootPart.getBody();
+        redirectOriginalReturnPath = messageViewInfo.rootPart.getHeader("Return-Path")[0];
+        subjectView.setText(messageViewInfo.message.getSubject());
+        subjectView.setEnabled(false);
+
+        // "Be Like Thunderbird" - on forwarded messages, set the message ID
+        // of the forwarded message in the references and the reply to.  TB
+        // only includes ID of the message being forwarded in the reference,
+        // even if there are multiple references.
+        if (!TextUtils.isEmpty(message.getMessageId())) {
+            repliedToMessageId = message.getMessageId();
+            referencedMessageIds = repliedToMessageId;
+        } else {
+            Timber.d("could not get Message-ID.");
+        }
+
+        Map<IdentityField, String> k9identity = new HashMap<>();
+        String[] identityHeaders = messageViewInfo.message.getHeader(K9.IDENTITY_HEADER);
+
+        if (identityHeaders.length > 0 && identityHeaders[0] != null) {
+            k9identity = IdentityHeaderParser.parse(identityHeaders[0]);
+        }
+
+        quotedMessagePresenter.processDraftMessage(messageViewInfo, k9identity);
+        messageContentView.setEnabled(false);
     }
 
     static class SendMessageTask extends AsyncTask<Void, Void, Void> {
@@ -1520,6 +1719,12 @@ public class MessageCompose extends K9Activity implements OnClickListener,
             new SendMessageTask(getApplicationContext(), account, contacts, message,
                     draftId != INVALID_DRAFT_ID ? draftId : null, relatedMessageReference).execute();
             finish();
+            if (action == Action.REPORT_SPAM && account.isReportSpamDelete()) {
+                MessagingController.getInstance(getApplication()).deleteMessage(relatedMessageReference, messagingListener);
+            }
+            if (action == Action.REPORT_HAM && account.isReportHamDelete()) {
+                MessagingController.getInstance(getApplication()).deleteMessage(relatedMessageReference, messagingListener);
+            }
         }
     }
 
@@ -1593,6 +1798,9 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         public void onMessageViewInfoLoadFinished(MessageViewInfo messageViewInfo) {
             internalMessageHandler.sendEmptyMessage(MSG_PROGRESS_OFF);
             loadLocalMessageForDisplay(messageViewInfo, action);
+            if (action == Action.REPORT_SPAM || action == Action.REPORT_HAM) {
+                checkToSendMessage();
+            }
         }
 
         @Override
@@ -1775,6 +1983,12 @@ public class MessageCompose extends K9Activity implements OnClickListener,
             Toast.makeText(MessageCompose.this,
                     getString(R.string.message_compose_attachments_skipped_toast), Toast.LENGTH_LONG).show();
         }
+
+        @Override
+        public void showMissingAttachmentsPartialMessageForwardWarning() {
+            Toast.makeText(MessageCompose.this,
+                    getString(R.string.message_compose_attachments_forward_toast), Toast.LENGTH_LONG).show();
+        }
     };
 
     private Handler internalMessageHandler = new Handler() {
@@ -1812,6 +2026,10 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         REPLY(R.string.compose_title_reply),
         REPLY_ALL(R.string.compose_title_reply_all),
         FORWARD(R.string.compose_title_forward),
+        FORWARD_AS_ATTACHMENT(R.string.compose_title_forward_as_attachment),
+        REDIRECT(R.string.compose_title_redirect),
+        REPORT_SPAM(R.string.compose_title_reportspam),
+        REPORT_HAM(R.string.compose_title_reportham),
         EDIT_DRAFT(R.string.compose_title_compose);
 
         private final int titleResource;

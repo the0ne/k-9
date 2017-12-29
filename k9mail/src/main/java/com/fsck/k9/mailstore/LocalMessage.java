@@ -217,27 +217,7 @@ public class LocalMessage extends MimeMessage {
      */
     @Override
     public void setRecipients(RecipientType type, Address[] addresses) {
-        if (type == RecipientType.TO) {
-            if (addresses == null || addresses.length == 0) {
-                this.mTo = null;
-            } else {
-                this.mTo = addresses;
-            }
-        } else if (type == RecipientType.CC) {
-            if (addresses == null || addresses.length == 0) {
-                this.mCc = null;
-            } else {
-                this.mCc = addresses;
-            }
-        } else if (type == RecipientType.BCC) {
-            if (addresses == null || addresses.length == 0) {
-                this.mBcc = null;
-            } else {
-                this.mBcc = addresses;
-            }
-        } else {
-            throw new IllegalArgumentException("Unrecognized recipient type.");
-        }
+        setRecipients(type, addresses, false);
 
         headerNeedsUpdating = true;
     }
@@ -393,6 +373,17 @@ public class LocalMessage extends MimeMessage {
         return message;
     }
 
+    public MimeMessage cloneAsSuper(boolean clearUid) {
+        MimeMessage message = new MimeMessage();
+        super.copy(message);
+
+        if (clearUid) {
+            mUid = null;
+        }
+
+        return message;
+    }
+
     public long getThreadId() {
         return threadId;
     }
@@ -410,6 +401,14 @@ public class LocalMessage extends MimeMessage {
             messageReference = new MessageReference(getFolder().getAccountUuid(), getFolder().getName(), mUid, null);
         }
         return messageReference;
+    }
+
+    @Override
+    protected void copy(MimeMessage destination) {
+        super.copy(destination);
+        if (destination instanceof LocalMessage) {
+            ((LocalMessage)destination).messageReference = messageReference;
+        }
     }
 
     @Override

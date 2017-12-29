@@ -8,15 +8,27 @@
     <item
          android:id="@+id/reply_all"
          android:title="@string/reply_all_action"/>
-     <item
+    <item
          android:id="@+id/reply"
          android:title="@string/reply_action"/>
-     <item
+    <item
          android:id="@+id/send_again"
          android:title="@string/send_again_action"/>
-     <item
+    <item
          android:id="@+id/forward"
          android:title="@string/forward_action"/>
+    <item
+         android:id="@+id/forward_as_attachment"
+         android:title="@string/forward_as_attachment_action"/>
+    <item
+        android:id="@+id/redirect"
+        android:title="@string/redirect_action"/>
+    <item
+        android:id="@+id/reportspam"
+        android:title="@string/reportspam_action"/>
+    <item
+        android:id="@+id/reportham"
+        android:title="@string/reportham_action"/>
     <item
         android:id="@+id/delete"
         android:title="@string/delete_action"

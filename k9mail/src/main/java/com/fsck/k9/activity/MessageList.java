@@ -898,8 +898,24 @@ public class MessageList extends K9Activity implements MessageListFragmentListen
                 mMessageViewFragment.onReplyAll();
                 return true;
             }
+            case R.id.redirect: {
+                mMessageViewFragment.onRedirect();
+                return true;
+            }
             case R.id.forward: {
                 mMessageViewFragment.onForward();
+                return true;
+            }
+            case R.id.forward_as_attachment: {
+                mMessageViewFragment.onForwardAsAttachment();
+                return true;
+            }
+            case R.id.reportspam: {
+                mMessageViewFragment.onReportSpam();
+                return true;
+            }
+            case R.id.reportham: {
+                mMessageViewFragment.onReportHam();
                 return true;
             }
             case R.id.share: {
@@ -1034,6 +1050,8 @@ public class MessageList extends K9Activity implements MessageListFragmentListen
             menu.findItem(R.id.toggle_message_view_theme).setVisible(false);
             menu.findItem(R.id.show_headers).setVisible(false);
             menu.findItem(R.id.hide_headers).setVisible(false);
+            menu.findItem(R.id.reportspam).setVisible(false);
+            menu.findItem(R.id.reportham).setVisible(false);
         } else {
             // hide prev/next buttons in split mode
             if (mDisplayMode != DisplayMode.MESSAGE_VIEW) {
@@ -1117,6 +1135,11 @@ public class MessageList extends K9Activity implements MessageListFragmentListen
             } else {
                 menu.findItem(R.id.hide_headers).setVisible(false);
             }
+
+            menu.findItem(R.id.reportspam).setVisible(
+                    mMessageViewFragment.isAccountReportSpamEnabled());
+            menu.findItem(R.id.reportham).setVisible(
+                    mMessageViewFragment.isAccountReportHamEnabled());
         }
 
 
@@ -1243,6 +1266,16 @@ public class MessageList extends K9Activity implements MessageListFragmentListen
     }
 
     @Override
+    public void onRedirect(MessageReference messageReference) {
+        onRedirect(messageReference, null);
+    }
+
+    @Override
+    public void onRedirect(MessageReference messageReference, Parcelable decryptionResultForReply) {
+        MessageActions.actionRedirect(this, messageReference, decryptionResultForReply);
+    }
+
+    @Override
     public void onForward(MessageReference messageReference) {
         onForward(messageReference, null);
     }
@@ -1250,6 +1283,36 @@ public class MessageList extends K9Activity implements MessageListFragmentListen
     @Override
     public void onForward(MessageReference messageReference, Parcelable decryptionResultForReply) {
         MessageActions.actionForward(this, messageReference, decryptionResultForReply);
+    }
+
+    @Override
+    public void onForwardAsAttachment(MessageReference messageReference) {
+        onForwardAsAttachment(messageReference, null);
+    }
+
+    @Override
+    public void onForwardAsAttachment(MessageReference messageReference, Parcelable decryptionResultForReply) {
+        MessageActions.actionForwardAsAttachment(this, messageReference, decryptionResultForReply);
+    }
+
+    @Override
+    public void onReportSpam(MessageReference messageReference) {
+        onReportSpam(messageReference, null);
+    }
+
+    @Override
+    public void onReportSpam(MessageReference messageReference, Parcelable decryptionResultForReply) {
+        MessageActions.actionReportSpam(this, messageReference, decryptionResultForReply);
+    }
+
+    @Override
+    public void onReportHam(MessageReference messageReference) {
+        onReportHam(messageReference, null);
+    }
+
+    @Override
+    public void onReportHam(MessageReference messageReference, Parcelable decryptionResultForReply) {
+        MessageActions.actionReportHam(this, messageReference, decryptionResultForReply);
     }
 
     @Override
