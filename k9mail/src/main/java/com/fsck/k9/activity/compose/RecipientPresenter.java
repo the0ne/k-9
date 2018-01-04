@@ -441,6 +441,8 @@ public class RecipientPresenter implements PermissionPingCallback {
         CryptoStatusDisplayType cryptoStatusDisplayType = cachedCryptoStatus.getCryptoStatusDisplayType();
         recipientMvpView.showCryptoStatus(cryptoStatusDisplayType);
         recipientMvpView.showCryptoSpecialMode(cachedCryptoStatus.getCryptoSpecialModeDisplayType());
+
+        listener.onCryptoStatusUpdated();
     }
 
     @Nullable
@@ -984,5 +986,6 @@ public class RecipientPresenter implements PermissionPingCallback {
 
     public interface RecipientsChangedListener {
         void onRecipientsChanged();
+        void onCryptoStatusUpdated();
     }
 }

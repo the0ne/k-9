@@ -421,7 +421,7 @@ public class MessageCompose extends K9Activity implements OnClickListener,
                 recipientPresenter.addToAddresses(Address.parse(account.getReportSpamRecipient()));
             } else if (action == Action.REPORT_HAM) {
                     recipientPresenter.addToAddresses(Address.parse(account.getReportHamRecipient()));
-            } else if (action != Action.EDIT_DRAFT) {
+            } else if (action != Action.EDIT_DRAFT && action != Action.REDIRECT) {
                 String alwaysBccString = account.getAlwaysBcc();
                 if (action == Action.EDIT_DRAFT) {
                     Preferences prefs = Preferences.getPreferences(getApplicationContext());
@@ -715,11 +715,11 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         builder.setSubject(Utility.stripNewLines(subjectView.getText().toString()))
                 .setSentDate(new Date())
                 .setHideTimeZone(K9.hideTimeZone())
-		//THOR needs check
+		//THOR needs recheck
                     .setTo(recipientPresenter.getToAddresses())
                     .setCc(recipientPresenter.getCcAddresses())
                     .setBcc(recipientPresenter.getBccAddresses())
-		//THOR needs check
+		//THOR needs recheck
                 .setInReplyTo(repliedToMessageId)
                 .setReferences(referencedMessageIds)
                 .setRequestReadReceipt(requestReadReceipt)
@@ -801,6 +801,10 @@ public class MessageCompose extends K9Activity implements OnClickListener,
             changesMadeSinceLastSave = false;
             setProgressBarIndeterminateVisibility(true);
             currentMessageBuilder.buildAsync(this);
+        }
+        else
+        {
+            Timber.w("MessageBuilder could not be created");
         }
     }
 
@@ -980,6 +984,13 @@ public class MessageCompose extends K9Activity implements OnClickListener,
     @Override
     public void onRecipientsChanged() {
         changesMadeSinceLastSave = true;
+    }
+
+    @Override
+    public void onCryptoStatusUpdated() {
+        if (action == Action.REPORT_SPAM || action == Action.REPORT_HAM) {
+            checkToSendMessage();
+        }
     }
 
     @Override
@@ -1798,8 +1809,15 @@ public class MessageCompose extends K9Activity implements OnClickListener,
         public void onMessageViewInfoLoadFinished(MessageViewInfo messageViewInfo) {
             internalMessageHandler.sendEmptyMessage(MSG_PROGRESS_OFF);
             loadLocalMessageForDisplay(messageViewInfo, action);
+
             if (action == Action.REPORT_SPAM || action == Action.REPORT_HAM) {
-                checkToSendMessage();
+                ComposeCryptoStatus cryptoStatus = recipientPresenter.getCurrentCachedCryptoStatus();
+                if (cryptoStatus == null) {
+                    recipientPresenter.asyncUpdateCryptoStatus();
+                }
+                else {
+                    checkToSendMessage();
+                }
             }
         }
 
