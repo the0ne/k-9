@@ -390,6 +390,13 @@ public class SmtpTransport extends Transport {
     @Override
     public void sendMessage(Message message) throws MessagingException {
         List<Address> addresses = new ArrayList<>();
+        if (message.getResentOriginalReturnPath() != null && message.getResentOriginalReturnPath().length > 0)
+        {
+            addresses.addAll(Arrays.asList(message.getRecipients(RecipientType.RESENT_TO)));
+            addresses.addAll(Arrays.asList(message.getRecipients(RecipientType.RESENT_CC)));
+            addresses.addAll(Arrays.asList(message.getRecipients(RecipientType.RESENT_BCC)));
+        }
+        else
         {
             addresses.addAll(Arrays.asList(message.getRecipients(RecipientType.TO)));
             addresses.addAll(Arrays.asList(message.getRecipients(RecipientType.CC)));
