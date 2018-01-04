@@ -989,7 +989,9 @@ public class MessageCompose extends K9Activity implements OnClickListener,
     @Override
     public void onCryptoStatusUpdated() {
         if (action == Action.REPORT_SPAM || action == Action.REPORT_HAM) {
-            checkToSendMessage();
+            if (relatedMessageProcessed) {
+                checkToSendMessage();
+            }
         }
     }
 
