@@ -180,6 +180,7 @@ public class MessageCompose extends K9Activity implements OnClickListener,
 
     private String redirectOriginalReturnPath = null;
     private Body redirectBody = null;
+    private boolean isSent = false;
     private Identity identity;
     private boolean identityChanged = false;
     private boolean signatureChanged = false;
@@ -1729,14 +1730,25 @@ public class MessageCompose extends K9Activity implements OnClickListener,
             }
         } else {
             currentMessageBuilder = null;
-            new SendMessageTask(getApplicationContext(), account, contacts, message,
-                    draftId != INVALID_DRAFT_ID ? draftId : null, relatedMessageReference).execute();
-            finish();
-            if (action == Action.REPORT_SPAM && account.isReportSpamDelete()) {
-                MessagingController.getInstance(getApplication()).deleteMessage(relatedMessageReference, messagingListener);
+            if ( (action == Action.REPORT_SPAM || action == Action.REPORT_HAM) && isSent) {
+                //don't send twice
+            } else {
+                new SendMessageTask(getApplicationContext(), account, contacts, message,
+                        draftId != INVALID_DRAFT_ID ? draftId : null, relatedMessageReference).execute();
             }
-            if (action == Action.REPORT_HAM && account.isReportHamDelete()) {
-                MessagingController.getInstance(getApplication()).deleteMessage(relatedMessageReference, messagingListener);
+            finish();
+            if (action == Action.REPORT_SPAM || action == Action.REPORT_HAM) {
+                if (isSent) {
+                    //don't delete twice
+                } else {
+                    isSent = true;
+                    if (action == Action.REPORT_SPAM && account.isReportSpamDelete()) {
+                        MessagingController.getInstance(getApplication()).deleteMessage(relatedMessageReference, messagingListener);
+                    }
+                    if (action == Action.REPORT_HAM && account.isReportHamDelete()) {
+                        MessagingController.getInstance(getApplication()).deleteMessage(relatedMessageReference, messagingListener);
+                    }
+                }
             }
         }
     }
